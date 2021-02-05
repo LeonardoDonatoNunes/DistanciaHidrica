@@ -1,19 +1,36 @@
 ---
-title: "Distância Hídrica -  Menor caminho entre curvas e ilhas"
-author: "Leonardo Nunes"
-date: "1/25/2021"
+title: ""
+author: ""
+date: ""
 output: 
   html_document:
-    keep.md: true
-    number_sections: true
+    keep_md: true
     theme: simplex
+encoding: iso-8859-1
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.align = 'center')
-knitr::opts_knit$set(root.dir = "C:\\Users\\user\\Documents\\")
-
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.align = 'center', class.source = "bg-info")
+knitr::opts_knit$set(root.dir = "C:\\Users\\user\\Documents\\", encoding = getOption("encoding"))
 ```
+
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+  color: #B9BBB6;
+  text-align: justify;
+  background-color:black;
+}
+</style>
+
+
+ &nbsp;  &nbsp;  &nbsp;    ![](C:/Users/user/Dropbox/R/ImagensRmarkdown/r.png){width=110px}    &nbsp;  &nbsp;  &nbsp;   ![](C:/Users/user/Dropbox/R/ImagensRmarkdown/rstudio.png){width=250px} ![](C:/Users/user/Dropbox/R/ImagensRmarkdown/ggplot.png){width=100px}       &nbsp; &nbsp; &nbsp;     ![](C:/Users/user/Dropbox/R/ImagensRmarkdown/qgis.png){width=100px}  &nbsp;  &nbsp;  &nbsp;   ![](C:/Users/user/Dropbox/R/ImagensRmarkdown/dplyr.png){width=100px}  
+
+
+
+
+
 
 ```{r pacotes_executa, message=F, warning=F, results='hide', echo=F, include=F}
 library(raster)
@@ -23,10 +40,12 @@ library(dplyr)
 library(ggthemes)
 library(ggsn)
 library(ggspatial)
+library(sf)
+
 ```
 
 
-# Menor caminho {.tabset}
+# Menor caminho entre dois pontos {.tabset}
 
 Este documento foi criado para auxiliar quem precisa encontrar o menor caminho entre dois ou mais pontos dentro de um polígono, levando em consideração os limítes da área.
 
@@ -35,103 +54,85 @@ Como exemplo, criei um polígono de rio, que contém ilhas e curvas. O objetivo é 
 
 <br />
 
-```{r plot_poligono_intro, echo=F}
+```{r plot_poligono_intro, echo=F, fig.width=10.37, fig.height=8}
 # Carrega o poligono do rio no formato .shp
 rio <- shapefile("rio.shp")
 
-# Cria dois pontos que precisarão ser conectados
+# Cria dois pontos que precisarÃ£o ser conectados
 origem <- c(-49.16760,-20.30495)
 destino <- c(-48.75058,-20.15693)
 
 # Cria o grid na área do polígono
-grid <- makegrid(rio, cellsize = 0.0005) # Tamanho da célula em unidades de mapa!
+grid <- makegrid(rio, cellsize = 0.0005) # Tamanho da célulalula em unidades de mapa!
 
-# O grid é um data.frame. para transformar em um  conjunto de dados espaciais utiliza-se a funçao SpatialPoints
+# O grid Ã© um data.frame. para transformar em um  conjunto de dados espaciais utiliza-se a funÃ§ao SpatialPoints
 grid <- SpatialPoints(grid, proj4string = CRS(proj4string(rio)))
 
 # Extrair somente a parte do grid que intersepta o poligono do rio
 grid <- grid[rio, ]
 
-# Converte o grid novamente em um data.frame para criação do raster
+# Converte o grid novamente em um data.frame para criaÃ§Ã£o do raster
 grid_df <- as.data.frame(grid)
 
-# Atribui um valor para as células que estão no rio (água)
+# Atribui um valor para as cÃ©lulas que estÃ£o no rio (Ã¡gua)
 grid_df$value <- 1
 
 # Cria o raser do data.frame
 rio_raster <- rasterFromXYZ(grid_df)
 
-# Transforma o raster em uma camada de transiÃ§Ã£o
+# Transforma o raster em uma camada de transição
 rio_tr <- transition(rio_raster, mean, directions = 8)
 rio_tr <- geoCorrection(rio_tr, "c")
 
 
-# Função que cria o menor caminho (pacote gdistance)
+# FunÃ§Ã£o que cria o menor caminho (pacote gdistance)
 caminho <- shortestPath(rio_tr, origem, destino, output = "SpatialLines")
 
-# Salva um arquivo temporário pra criar todos os arquivos de um shapefile
-shapefile(caminho, "Temp.shp", overwrite=TRUE)
-caminho <- shapefile("Temp.shp")
+crs(caminho) <- CRS("+proj=longlat +datum=WGS84")
 
-# Armazena os limites da área do rio para rosa dos ventos 
+label_compr <- paste0("Distância calculada: ", round(SpatialLinesLengths(caminho), 2), " km")
+
+rio <- st_as_sf(rio)
+caminho <- st_as_sf(caminho, crs = CRS('+proj=longlat +datum=WGS84'))
+
+
+# Armazena os limites da Ã¡rea do rio para rosa dos ventos 
 xmin <- extent(rio)[1]
 xmax <- extent(rio)[2]
 ymin <- extent(rio)[3]
 ymax <- extent(rio)[4]
 
-# Cria o gráfico para visualizar o caminho criado
 ggplot() +
-  geom_polygon(data = rio, aes(x = long, y = lat, group = group, fill = group), show.legend = F, col = "black") +
+  geom_sf(data = rio, fill = "lightblue", color = "lightblue") +
+  # Dados dos peixes
+  geom_sf(data = caminho, col = "orange", lwd = 2) +
   
-  geom_point(data = NULL, aes(x = origem[1], y = origem[2]), col = "red", size = 4) +
+  geom_point(data = NULL, aes(x = origem[1], y = origem[2]), col = "red", size = 5) +
   geom_text(data = NULL, aes(x = origem[1], y = origem[2], label = "Origem"),
-            size = 4, vjust = 3) +
+            size = 5, vjust = 3) +
   
-  geom_point(data = NULL, aes(x = destino[1], y = destino[2]), col = "green", size = 4) +
+  geom_point(data = NULL, aes(x = destino[1], y = destino[2]), col = "green", size = 5) +
   geom_text(data = NULL, aes(x = destino[1], y = destino[2], label = "Destino"), 
-            size = 4, vjust = 2) +
-
-  geom_path(data = caminho, aes(x = long, y = lat, group = group), col = "purple", lwd = 1.3) +
+            size = 5, vjust = 2) +
   
-  scale_fill_manual(values = c("0.1" = alpha("lightblue", alpha = 0.3),
-                               "0.2" = "white","0.3" = "white","0.4" = "white",
-                               "0.5" = "white","0.6" = "white","0.7" = "white")) +
+  scalebar(dist = 5, dist_unit = "km", x.min =  xmin, x.max = xmax, y.min = ymin, y.max = ymax,
+           transform = T, model = "WGS84", location = "bottomright", st.dist = 0.05, st.color = "grey50", box.fill = c("grey50", "white"), box.color = "grey50") +
+  north(x.min =  xmin, x.max = xmax, y.min = ymin, y.max = ymax, scale = 0.12, anchor = c(x = -48.75, y = -20.39), symbol = 4) +
   
-  coord_fixed() +
-  labs(x = NULL, 
-         y = NULL, 
-         title = "Menor distância entre dois pontos", 
-         subtitle = NULL, 
-         caption = paste0("Distância calculada: ", round(SpatialLinesLengths(caminho, longlat = T), 2), " km")) +
+  annotate("text", x = -49.1, y = -20.43, label = label_compr, size = 5) +
   
-    north(x.min = xmin, x.max = xmax, y.min = ymin, y.max = ymax, location = "bottomright", scale = 0.2, symbol = 3)  +
-
-  annotation_scale(plot_unit = "km") +
-  theme_minimal() +
+  ylab("") +
+  xlab("") +
   
-  theme(
-    text = element_text(family = "Ubuntu Regular", color = "#22211d"),
-    axis.line = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    # panel.grid.minor = element_line(color = "#ebebe5", size = 0.2),
-    panel.grid.major = element_line(color = "#ebebe5", size = 0.2),
-    panel.grid.minor = element_blank(),
-    plot.background = element_rect(fill = "#f5f5f2", color = NA), 
-    panel.background = element_rect(fill = "#f5f5f2", color = NA), 
-    legend.background = element_rect(fill = "#f5f5f2", color = NA),
-    panel.border = element_blank()
-  )
-
-
+  theme_base() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill  = "black"))
 ```
   
 
 
-**Figura 1.** Polígono do rio e pontos de origem e de destino. O objetivo deste roteiro é criar um caminho entre os dois pontos que considere as margens do polígono (linha roxa).
+**Figura 1.** Polígono do rio e pontos de origem e de destino. O objetivo deste roteiro é criar um caminho entre os dois pontos que considere as margens do polígono (linha laranja).
 
 <br />
 
@@ -145,7 +146,7 @@ O documento está dividido em partes, que podem ser acessada nas abas da tabela d
   
   1.4. Criação da camada de transição e do menor caminho
   
-  1.5. Função que calcula o tamanho do seguimento (distãncia entre os dois pontos)
+  1.5. Função que calcula o tamanho do seguimento (distância entre os dois pontos)
 
 
 <br />
@@ -161,12 +162,13 @@ library(dplyr)
 ```
 
 <br />
-Pacotes para criar a vizsualização do mapa:
+Pacotes para para o processamento dos dados geográficos e ciração do mapa.
 ```{r pacotes, message=F, warning=F, results='hide', eval=F}
 library(ggplot2)
 library(ggthemes)
 library(ggsn)
 library(ggspatial)
+library(sf)
 ```
 
 <br />
@@ -182,7 +184,7 @@ O primeiro passo é carregar o polígono do rio, para isso, utilisei a função "sha
 # Carrega o poligono do rio no formato .shp
 rio <- shapefile("rio.shp")
 
-# Cria dois pontos que precisarão ser conectados
+# Cria dois pontos que precisarÃ£o ser conectados
 origem <- c(-49.16760,-20.30495)
 destino <- c(-48.75058,-20.15693)
 
@@ -200,18 +202,18 @@ Em seguida é necessário criar uma camada no formato raster que será utilizada pa
 
 ```{r cria_grid_novamente}
 # Cria o grid na área do polígono
-grid <- makegrid(rio, cellsize = 0.0005) # Tamanho da célula em unidades de mapa!
+grid <- makegrid(rio, cellsize = 0.0005) # Tamanho da cÃ©lula em unidades de mapa!
 
-# O grid é um data.frame. para transformar em um  conjunto de dados espaciais utiliza-se a funçao SpatialPoints
+# O grid é um data.frame. para transformar em um  conjunto de dados espaciais utiliza-se a funcao SpatialPoints
 grid <- SpatialPoints(grid, proj4string = CRS(proj4string(rio)))
 
 # Extrair somente a parte do grid que intersepta o poligono do rio
 grid <- grid[rio, ]
 
-# Converte o grid novamente em um data.frame para criação do raster
+# Converte o grid novamente em um data.frame para criacaodo raster
 grid_df <- as.data.frame(grid)
 
-# Atribui um valor para as células que estão no rio (água)
+# Atribui um valor para as celulas que estao no rio (agua)
 grid_df$value <- 1
 
 # Cria o raser do data.frame
@@ -232,23 +234,22 @@ points(x = -48.70708, y = -22.17826, col = "red", cex = 4)
 
 Para criar o caminho em um raster é necessário que seja criado uma camada de transição. Para isso, utilizei a função "transition", do pacote "gdistance". Para quem já possui um raster da área desejada, ou preferiu criar o raster com outro software, basta carregar o raster a partir desta etapa. 
 
+<br />
 
 ```{r transicao}
-# Transforma o raster em uma camada de transiÃ§Ã£o
+# Transforma o raster em uma camada de transiÃƒÂ§ÃƒÂ£o
 rio_tr <- transition(rio_raster, mean, directions = 8)
 rio_tr <- geoCorrection(rio_tr, "c")
 
 ```
-
-O menor caminho é criado com a função 'shortestPath' também do pacote 'ggdistance'. Após a criação do caminho, para que a camada seja utilziada no gráfico é necessário salver o arquivo para criar os 4 arquivos que compões um shapefile.
-
+<br />
+O menor caminho é criado com a função 'shortestPath' também do pacote 'ggdistance'. Utilizei a função CRS para assinar um crs ao caminho.
+<br />
 ```{r pontos}
-# Função que cria o menor caminho (pacote gdistance)
+# FunÃ§Ã£o que cria o menor caminho (pacote gdistance)
 caminho <- shortestPath(rio_tr, origem, destino, output = "SpatialLines")
+crs(caminho) <- CRS("+proj=longlat +datum=WGS84")
 
-# Salva um arquivo temporário pra criar todos os arquivos de um shapefile
-shapefile(caminho, "Temp.shp", overwrite=TRUE)
-caminho <- shapefile("Temp.shp")
 ```
 
 <br />
@@ -256,59 +257,48 @@ caminho <- shapefile("Temp.shp")
 A seguir a instruçao de como foi feito o plot que é apresentado na introdução.
 
 ```{r plot_caminho_intro}
-# Armazena os limites da área do rio para rosa dos ventos 
+# Funcao que cria o menor caminho (pacote gdistance)
+caminho <- shortestPath(rio_tr, origem, destino, output = "SpatialLines")
+crs(caminho) <- CRS("+proj=longlat +datum=WGS84")
+
+label_compr <- paste0("Distância calculada: ", round(SpatialLinesLengths(caminho), 2), " km")
+
+rio <- st_as_sf(rio)
+caminho <- st_as_sf(caminho, crs = CRS('+proj=longlat +datum=WGS84'))
+
+
+# Armazena os limites da area do rio para rosa dos ventos 
 xmin <- extent(rio)[1]
 xmax <- extent(rio)[2]
 ymin <- extent(rio)[3]
 ymax <- extent(rio)[4]
 
-# Cria o gráfico para visualizar o caminho criado
 ggplot() +
-  geom_polygon(data = rio, aes(x = long, y = lat, group = group, fill = group), show.legend = F, col = "black") +
+  geom_sf(data = rio, fill = "lightblue", color = "lightblue") +
+  # Dados dos peixes
+  geom_sf(data = caminho, col = "orange", lwd = 2) +
   
-  geom_point(data = NULL, aes(x = origem[1], y = origem[2]), col = "red", size = 4) +
+  geom_point(data = NULL, aes(x = origem[1], y = origem[2]), col = "red", size = 5) +
   geom_text(data = NULL, aes(x = origem[1], y = origem[2], label = "Origem"),
-            size = 4, vjust = 3) +
+            size = 5, vjust = 3) +
   
-  geom_point(data = NULL, aes(x = destino[1], y = destino[2]), col = "green", size = 4) +
+  geom_point(data = NULL, aes(x = destino[1], y = destino[2]), col = "green", size = 5) +
   geom_text(data = NULL, aes(x = destino[1], y = destino[2], label = "Destino"), 
-            size = 4, vjust = 2) +
-
-  geom_path(data = caminho, aes(x = long, y = lat, group = group), col = "purple", lwd = 1.3) +
+            size = 5, vjust = 2) +
   
-  scale_fill_manual(values = c("0.1" = alpha("lightblue", alpha = 0.3),
-                               "0.2" = "#f5f5f2","0.3" = "#f5f5f2","0.4" = "#f5f5f2",
-                               "0.5" = "#f5f5f2","0.6" = "#f5f5f2","0.7" = "#f5f5f2")) +
+  scalebar(dist = 5, dist_unit = "km", x.min =  xmin, x.max = xmax, y.min = ymin, y.max = ymax,
+           transform = T, model = "WGS84", location = "bottomright", st.dist = 0.05, st.color = "grey50", box.fill = c("grey50", "white"), box.color = "grey50") +
+  north(x.min =  xmin, x.max = xmax, y.min = ymin, y.max = ymax, scale = 0.12, anchor = c(x = -48.75, y = -20.39), symbol = 4) +
   
-  coord_fixed() +
-  labs(x = NULL, 
-         y = NULL, 
-         title = "Menor distância entre dois pontos", 
-         subtitle = NULL, 
-         caption = paste0("Distância calculada: ", round(SpatialLinesLengths(caminho, longlat = T), 2), " km")) +
+  annotate("text", x = -49.1, y = -20.43, label = label_compr, size = 5) +
   
-    north(x.min = xmin, x.max = xmax, y.min = ymin, y.max = ymax, location = "bottomright", scale = 0.2, symbol = 3)  +
-
-  annotation_scale(plot_unit = "km") +
-  theme_minimal() +
+  ylab("") +
+  xlab("") +
   
-  theme(
-    text = element_text(family = "Ubuntu Regular", color = "#22211d"),
-    axis.line = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    # panel.grid.minor = element_line(color = "#ebebe5", size = 0.2),
-    panel.grid.major = element_line(color = "#ebebe5", size = 0.2),
-    panel.grid.minor = element_blank(),
-    plot.background = element_rect(fill = "#f5f5f2", color = NA), 
-    panel.background = element_rect(fill = "#f5f5f2", color = NA), 
-    legend.background = element_rect(fill = "#f5f5f2", color = NA),
-    panel.border = element_blank()
-  )
-
+  theme_base() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        plot.background = element_rect(fill  = "black"))
 
 ```
 <br />
@@ -321,6 +311,11 @@ Para calcular a distância hídrica utilizei a fução "SpatialLinesLengths" do paco
 
 
 ```{r distancia}
+
+
+
+caminho <- shortestPath(rio_tr, origem, destino, output = "SpatialLines")
+crs(caminho) <- CRS("+proj=longlat +datum=WGS84")
 SpatialLinesLengths(caminho, longlat = T)
 ```
 
@@ -329,3 +324,15 @@ SpatialLinesLengths(caminho, longlat = T)
 <br />
 <br />
 
+</br >
+</br >
+
+#
+
+Leonardo Donato Nunes [![](C:/Users/user/Dropbox/R/ImagensRmarkdown/linkedin.png){width=40px}](https://www.linkedin.com/in/leonardo-donato-nunes-754aa5b8?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BZeE8YK6ARgGfUOtWF8bkxg%3D%3D){style="float:right"} &nbsp;  &nbsp;  &nbsp;  &nbsp; [![](C:/Users/user/Dropbox/R/ImagensRmarkdown/email.png){width=40px}](leonardodonatonunes@yahoo.com.br){style="float:right"} &nbsp;  &nbsp;  &nbsp;  &nbsp; [![](C:/Users/user/Dropbox/R/ImagensRmarkdown/github.png){width=45px}](https://github.com/LeonardoDonatoNunes){style="float:right"} &nbsp;  &nbsp;
+
+Brasil, 25 de Janeiro de 2021
+
+</br >
+
+ <a href="#top">Back to top</a>
