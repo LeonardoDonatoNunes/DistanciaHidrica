@@ -6,6 +6,6 @@ A imagem abaixo ilustra o caminho criado entre os pontos e a distância calculad
 
 <p align="center">
 
-<img src = "https://github.com/LeonardoDonatoNunes/DistanciaHidrica/blob/1e732f4d8abcd36c25d7fef84d1717bd3dca42a2/distancia_hidrica_files/figure-html/plot_poligono_intro-1.png" alt="Distancia hidrica" width = "600">
+<img src = "https://github.com/LeonardoDonatoNunes/DistanciaHidrica/blob/1e732f4d8abcd36c25d7fef84d1717bd3dca42a2/distancia_hidrica_files/figure-html/plot_poligono_intro-1.png" alt="Distancia hidrica" width = "400">
   
 </p>
